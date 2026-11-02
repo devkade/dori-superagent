@@ -73,6 +73,13 @@ describe("pane messaging", () => {
     expect(lead.received).toEqual([]);
   });
 
+  test("the typed fallback trims leading and trailing newlines instead of leaving a dangling ' / '", async () => {
+    const { w, d, lead } = setup();
+    w.promptFails.set("w1:p1", '{"error":{"code":"agent_not_ready"}}');
+    await d.herdr.deliver("w1:p1", "\n\nhello\nworld\n\n", "idle");
+    expect(lead.received).toEqual(["hello / world"]);
+  });
+
   test("agent_not_ready on a pane that is now a plain shell throws instead of typing into the shell", async () => {
     const { w, d } = setup();
     const shell = w.addPane("w1:p7", "shell");

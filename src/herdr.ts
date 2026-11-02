@@ -103,7 +103,7 @@ export class Herdr {
       const st = await this.status(paneId);
       if (st === "shell" || st === "gone") throw e;
       // A multi-line paste swallows the Enter that follows it, so type the message as one line.
-      await this.call(["pane", "send-text", paneId, text.replace(/\s*\n\s*/g, " / ")]);
+      await this.call(["pane", "send-text", paneId, text.trim().replace(/\s*\n\s*/g, " / ")]);
       await Bun.sleep(PASTE_SETTLE_MS);
       await this.call(["pane", "send-keys", paneId, "enter"]);
     }
