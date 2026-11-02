@@ -66,6 +66,13 @@ describe("pane messaging", () => {
     expect(lead.received).toEqual(["hello / lead"]);
   });
 
+  test("another `agent prompt` failure for a message that merely mentions agent_not_ready is still thrown", async () => {
+    const { w, d, lead } = setup();
+    w.promptFails.set("w1:p1", "herdr exploded");
+    await expect(d.herdr.deliver("w1:p1", "a lane quoted agent_not_ready here", "idle")).rejects.toThrow("herdr exploded");
+    expect(lead.received).toEqual([]);
+  });
+
   test("unknown targets are refused instead of guessed", async () => {
     const { d } = setup();
     await expect(send(d, "nobody", "hi", "cli")).rejects.toThrow("unknown target");
