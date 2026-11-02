@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { cpus, freemem, loadavg, totalmem } from "node:os";
 import { join, resolve } from "node:path";
-import { Herdr, shq, spawnExec, type AgentStatus, type Exec } from "./herdr.ts";
+import { Herdr, HerdrError, shq, spawnExec, type AgentStatus, type Exec } from "./herdr.ts";
 import { KEY_RE, Store, type HostLoad, type Lane, type Role } from "./store.ts";
 import { Telemetry, type MergeOutcome, type Usage } from "./telemetry.ts";
 
@@ -202,6 +202,13 @@ export async function done(d: Deps, key: string): Promise<void> {
 
 export type DutyEvent = { lane?: string; pane?: string; action: string; detail?: string };
 
+/** A short one-line reason. A HerdrError message carries the whole argv (the queued text), so use herdr's own output. */
+function failureDetail(e: unknown): string {
+  const raw = e instanceof HerdrError ? e.result.stderr || e.result.stdout : e instanceof Error ? e.message : String(e);
+  const first = raw.trim().split("\n")[0] ?? "";
+  return first.length > 200 ? `${first.slice(0, 200)}...` : first;
+}
+
 /** One proactive pass: flush inboxes of panes that became idle, nudge silent lanes, escalate, detect lost panes. */
 export async function dutyTick(d: Deps): Promise<DutyEvent[]> {
   const events: DutyEvent[] = [];
@@ -211,7 +218,7 @@ export async function dutyTick(d: Deps): Promise<DutyEvent[]> {
     } catch (e) {
       // One pane's failed delivery must never kill the loop for every other pane and lane.
       if (e instanceof Refusal) events.push({ pane: paneId, action: "inbox-target-gone" });
-      else events.push({ pane: paneId, action: "flush-failed", detail: e instanceof Error ? e.message : String(e) });
+      else events.push({ pane: paneId, action: "flush-failed", detail: failureDetail(e) });
     }
   }
   for (const lane of d.store.lanes()) {

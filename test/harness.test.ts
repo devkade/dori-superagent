@@ -145,6 +145,15 @@ describe("duty loop", () => {
     expect(broken.received).toEqual([]);
   });
 
+  test("the flush-failed detail is herdr's first output line, never the queued message", async () => {
+    const { w, d } = setup();
+    w.addPane("w1:p9", "idle");
+    w.promptFails.set("w1:p9", "herdr exploded\nsecond line");
+    d.store.enqueue("w1:p9", { at: w.clock, from: "cli", text: "SECRET queued message" });
+    const events = await dutyTick(d);
+    expect(events).toEqual([{ pane: "w1:p9", action: "flush-failed", detail: "herdr exploded" }]);
+  });
+
   test("the duty loop prints a flush-failed line with the reason", async () => {
     const { w, d } = setup();
     w.addPane("w1:p9", "idle");
