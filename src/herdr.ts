@@ -23,6 +23,9 @@ export class HerdrError extends Error {
 /** Agent lifecycle as herdr reports it. `shell` = no recognised agent in the pane. */
 export type AgentStatus = "idle" | "working" | "blocked" | "done" | "unknown" | "shell" | "gone";
 
+/** The terminal needs a moment to finish a bracketed paste before an Enter is read as a submit. */
+const PASTE_SETTLE_MS = 400;
+
 export type PaneRef = { readonly paneId: string; readonly tabId: string; readonly workspaceId: string };
 
 export class Herdr {
@@ -89,7 +92,17 @@ export class Herdr {
       await this.call(["pane", "send-keys", paneId, "enter"]);
       return;
     }
-    await this.call(["agent", "prompt", paneId, text]);
+    try {
+      await this.call(["agent", "prompt", paneId, text]);
+    } catch (e) {
+      // herdr only accepts `agent prompt` for agents it started itself (`herdr agent start`); an omo launched
+      // with `pane run` is detected but refused. Fall back to typing the text and pressing Enter.
+      if (!(e instanceof HerdrError) || !/agent_not_ready/.test(e.message)) throw e;
+      // A multi-line paste swallows the Enter that follows it, so type the message as one line.
+      await this.call(["pane", "send-text", paneId, text.replace(/\s*\n\s*/g, " / ")]);
+      await Bun.sleep(PASTE_SETTLE_MS);
+      await this.call(["pane", "send-keys", paneId, "enter"]);
+    }
   }
 
   async read(paneId: string, lines = 80): Promise<string> {

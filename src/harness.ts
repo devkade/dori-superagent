@@ -200,7 +200,7 @@ export async function done(d: Deps, key: string): Promise<void> {
 
 // ---------- duty loop ----------
 
-export type DutyEvent = { lane?: string; pane?: string; action: string };
+export type DutyEvent = { lane?: string; pane?: string; action: string; detail?: string };
 
 /** One proactive pass: flush inboxes of panes that became idle, nudge silent lanes, escalate, detect lost panes. */
 export async function dutyTick(d: Deps): Promise<DutyEvent[]> {
@@ -209,8 +209,9 @@ export async function dutyTick(d: Deps): Promise<DutyEvent[]> {
     try {
       if (await flushInbox(d, paneId)) events.push({ pane: paneId, action: "flushed" });
     } catch (e) {
-      if (!(e instanceof Refusal)) throw e;
-      events.push({ pane: paneId, action: "inbox-target-gone" });
+      // One pane's failed delivery must never kill the loop for every other pane and lane.
+      if (e instanceof Refusal) events.push({ pane: paneId, action: "inbox-target-gone" });
+      else events.push({ pane: paneId, action: "flush-failed", detail: e instanceof Error ? e.message : String(e) });
     }
   }
   for (const lane of d.store.lanes()) {
