@@ -99,6 +99,9 @@ export class Herdr {
       // with `pane run` is detected but refused. Fall back to typing the text and pressing Enter.
       // Match herdr's own output, never e.message: that carries argv, which includes the delivered text.
       if (!(e instanceof HerdrError) || !/agent_not_ready/.test(e.result.stderr || e.result.stdout)) throw e;
+      // agent_not_ready also covers an agent that exited and left a shell in front: typing would run the text there.
+      const st = await this.status(paneId);
+      if (st === "shell" || st === "gone") throw e;
       // A multi-line paste swallows the Enter that follows it, so type the message as one line.
       await this.call(["pane", "send-text", paneId, text.replace(/\s*\n\s*/g, " / ")]);
       await Bun.sleep(PASTE_SETTLE_MS);

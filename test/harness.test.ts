@@ -73,6 +73,14 @@ describe("pane messaging", () => {
     expect(lead.received).toEqual([]);
   });
 
+  test("agent_not_ready on a pane that is now a plain shell throws instead of typing into the shell", async () => {
+    const { w, d } = setup();
+    const shell = w.addPane("w1:p7", "shell");
+    w.promptFails.set("w1:p7", '{"error":{"code":"agent_not_ready"}}');
+    await expect(d.herdr.deliver("w1:p7", "rm -rf nothing", "idle")).rejects.toThrow("agent_not_ready");
+    expect(shell.received).toEqual([]);
+  });
+
   test("unknown targets are refused instead of guessed", async () => {
     const { d } = setup();
     await expect(send(d, "nobody", "hi", "cli")).rejects.toThrow("unknown target");
