@@ -145,6 +145,24 @@ describe("duty loop", () => {
     expect(broken.received).toEqual([]);
   });
 
+  test("a failing lane-phase delivery is recorded as lane-failed and does not stop the other lanes", async () => {
+    const { w, d, brief } = setup();
+    const lost = await startLane(d, "lost-lane", brief, { workspace: "w1" });
+    const stuck = await startLane(d, "stuck-lane", brief, { workspace: "w1" });
+    const fine = await startLane(d, "fine-lane", brief, { workspace: "w1" });
+    w.panes.delete(lost.paneId);
+    w.panes.get(stuck.paneId)!.status = "idle";
+    w.panes.get(fine.paneId)!.status = "idle";
+    w.promptFails.set("w1:p1", "lead exploded");
+    w.promptFails.set(stuck.paneId, "stuck exploded");
+    w.clock = fine.createdAt + 10 * 60_000;
+    const events = await dutyTick(d);
+    expect(events).toContainEqual({ lane: "lost-lane", action: "lane-failed", detail: expect.stringContaining("lead exploded") });
+    expect(events).toContainEqual({ lane: "stuck-lane", action: "lane-failed", detail: expect.stringContaining("stuck exploded") });
+    expect(events).toContainEqual({ lane: "fine-lane", action: "nudge-1" });
+    expect(w.panes.get(fine.paneId)!.received.at(-1)).toContain("idle for 10 minutes");
+  });
+
   test("the flush-failed detail is herdr's first output line, never the queued message", async () => {
     const { w, d } = setup();
     w.addPane("w1:p9", "idle");
