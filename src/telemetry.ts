@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 // Anonymous usage counts, sent the way omo sends its own: OTLP/HTTP JSON logs to the omo collector.
 // Only counts and fixed enums leave the machine: never paths, repo names, PR numbers, lane keys or message text.
-// Off with DORI_TELEMETRY=0 or DO_NOT_TRACK=1.
+// Off with DORI_TELEMETRY=0 or DO_NOT_TRACK=1, or durably for every process on a home with an empty <home>/telemetry-off file.
 
 export const VERSION = "0.1.0";
 const HOUR_MS = 3_600_000;
@@ -74,7 +74,7 @@ export class Telemetry implements Usage {
   }
 
   private enqueue(work: () => Promise<void>): void {
-    if (!telemetryEnabled(this.env)) return;
+    if (!telemetryEnabled(this.env) || existsSync(join(this.home, "telemetry-off"))) return;
     this.queue = this.queue.then(work).catch(() => {});
   }
 

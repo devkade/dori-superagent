@@ -42,6 +42,15 @@ describe("telemetry", () => {
     expect(existsSync(join(r.home, "telemetry.json"))).toBe(false);
   });
 
+  test("a telemetry-off file in the home turns it off for every process without any env", async () => {
+    const r = rig();
+    writeFileSync(join(r.home, "telemetry-off"), "");
+    r.t.touch(); await r.t.flush(5000);
+    r.t.duty({ ticks: 1, flushed: 0, nudges: 0, escalations: 0, lost: 0 }); await r.t.flush(5000);
+    expect(r.sent).toEqual([]);
+    expect(existsSync(join(r.home, "telemetry.json"))).toBe(false);
+  });
+
   test("first run: one notice, installed + daily_active; later runs the same day send nothing; the next day sends daily_active again", async () => {
     const r = rig();
     r.t.touch(); await r.t.flush(5000);
