@@ -26,6 +26,9 @@ export type AgentStatus = "idle" | "working" | "blocked" | "done" | "unknown" | 
 /** The terminal needs a moment to finish a bracketed paste before an Enter is read as a submit. */
 const PASTE_SETTLE_MS = 400;
 
+/** How often the Enter that submits typed fallback text is tried before the delivery is reported as failed. */
+const ENTER_ATTEMPTS = 3;
+
 export type PaneRef = { readonly paneId: string; readonly tabId: string; readonly workspaceId: string };
 
 export class Herdr {
@@ -105,7 +108,15 @@ export class Herdr {
       // A multi-line paste swallows the Enter that follows it, so type the message as one line.
       await this.call(["pane", "send-text", paneId, text.trim().replace(/\s*\n\s*/g, " / ")]);
       await Bun.sleep(PASTE_SETTLE_MS);
-      await this.call(["pane", "send-keys", paneId, "enter"]);
+      // The text is already in the pane: retry only the Enter, so a flaky key press never re-types the message.
+      for (let attempt = 1; ; attempt++) {
+        try {
+          await this.call(["pane", "send-keys", paneId, "enter"]);
+          return;
+        } catch (err) {
+          if (attempt >= ENTER_ATTEMPTS) throw err;
+        }
+      }
     }
   }
 

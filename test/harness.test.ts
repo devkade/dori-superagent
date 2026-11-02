@@ -64,6 +64,21 @@ describe("pane messaging", () => {
     w.promptFails.set("w1:p1", '{"error":{"code":"agent_not_ready"}}');
     expect(await send(d, "lead", "hello\n\nlead", "cli")).toBe("DELIVERED");
     expect(lead.received).toEqual(["hello / lead"]);
+    expect(w.calls).toContainEqual({ cmd: "herdr", argv: ["pane", "send-keys", "w1:p1", "enter"] });
+  });
+
+  test("a failing Enter is retried without typing the text again; after 3 failures it is thrown", async () => {
+    const { w, d, lead } = setup();
+    const enters = () => w.calls.filter((c) => c.argv[1] === "send-keys").length;
+    w.promptFails.set("w1:p1", '{"error":{"code":"agent_not_ready"}}');
+    w.keyFails = 2;
+    await d.herdr.deliver("w1:p1", "once", "idle");
+    expect(lead.received).toEqual(["once"]);
+    expect(enters()).toBe(3);
+    w.keyFails = 5;
+    await expect(d.herdr.deliver("w1:p1", "twice", "idle")).rejects.toThrow("key press failed");
+    expect(lead.received).toEqual(["once", "twice"]);
+    expect(enters()).toBe(6);
   });
 
   test("another `agent prompt` failure for a message that merely mentions agent_not_ready is still thrown", async () => {
